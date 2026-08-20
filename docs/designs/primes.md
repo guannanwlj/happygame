@@ -19,4 +19,4 @@ Algorithm:
 
 ## Files
 - `primes.py` — implementation + CLI
-- `tests/test_primes.py` — unit tests (pytest style, stdlib-runnable)
+- `tests/test_primes.py` — unit tests (pytest; run with `pytest` or `python -m pytest` from the repo root)
