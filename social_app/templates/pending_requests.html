@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}待处理好友请求{% endblock %}
+
+{% block content %}
+<h1>待处理好友请求</h1>
+
+{% if requests %}
+<ul class="pending-requests">
+  {% for r in requests %}
+  <li class="pending-request" data-request-id="{{ r["id"] }}">
+    <span class="requester">{{ r["requester_username"] }}</span>
+    <time class="created-at">{{ r["created_at"] }}</time>
+    <a class="accept" href="/friends/requests/{{ r["id"] }}/accept">接受</a>
+    <a class="reject" href="/friends/requests/{{ r["id"] }}/reject">拒绝</a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty" id="empty-state">暂无待处理请求</p>
+{% endif %}
+{% endblock %}
