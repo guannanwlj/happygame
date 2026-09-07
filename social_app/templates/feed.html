@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}好友动态{% endblock %}
+{% block content %}
+<h1>好友动态</h1>
+{% if posts %}
+<ul class="feed">
+  {% for post in posts %}
+  <li class="post">
+    <span class="author">{{ post.username }}</span>
+    <time class="created-at">{{ post.created_at }}</time>
+    <p class="content">{{ post.content }}</p>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">暂无好友动态</p>
+{% endif %}
+{% endblock %}
