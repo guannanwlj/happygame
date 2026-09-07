@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}我的好友{% endblock %}
+
+{% block content %}
+<h1>我的好友</h1>
+
+{% if friends %}
+<ul class="friend-list">
+  {% for f in friends %}
+  <li class="friend" data-friend-id="{{ f["friend_id"] }}">
+    <span class="friend-username">{{ f["friend_username"] }}</span>
+    <time class="friends-since">{{ f["created_at"] }}</time>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty" id="empty-state">暂无好友</p>
+{% endif %}
+{% endblock %}
