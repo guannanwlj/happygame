@@ -1,108 +1,71 @@
 # FP-003 Test Scenarios — Authentication & Session Management
 
-Module under test: `social_app/auth.py` (domain), `social_app/routes.py`
-(HTTP), `social_app/app.py` (factory). Spec: self-built contract in
-`docs/designs/fp003-auth-session.md` (task card absent from checkout).
-All DB-backed tests use a fresh temp file via `SOCIAL_DB` (FP-001 pattern).
+Module under test: `social_app/auth.py` only (card §4). Spec: task card
+`input/tasks/social-platform/FP-003-auth-session.task.md` §3.2 (contract),
+§6 (mock/seed strategy), §7 (acceptance). DB-backed groups use a fresh temp
+file via `SOCIAL_DB` + the real FP-001 `db` module; HTTP groups use a
+test-local minimal Flask shell (FP-002 absent — card §6).
 
-## A. Password hashing primitives
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| A1 | `hash_password` then `verify_password` with the right password | Hash is a non-empty string ≠ plaintext; verify → True |
-| A2 | `verify_password` with a wrong password | False (not an exception) |
-| A3 | Hash the same password twice | Hashes differ (random salt); both verify True |
-| A4 | Hash format | Starts with `method:params$salt$hash` style prefix (`^[a-z0-9]+:`), never contains the plaintext |
-
-## B. Input validation
+## A. Password hashing primitives (card §7 case 1)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| B1 | Valid username (`alice_01`) and boundary lengths (3, 32 chars) | Accepted |
-| B2 | Username too short (2), too long (33), empty | `ValidationError` |
-| B3 | Username with space / `-` / unicode / non-string (int, None) | `ValidationError` |
-| B4 | Password boundary lengths (8, 128 ok; 7, 129 fail); non-string | `ValidationError` |
+| A1 | `hash_password(pw)` output format | Matches `pbkdf2:sha256$<int>$<32 hex>$<64 hex>` exactly; never contains the plaintext |
+| A2 | Round trip: hash then `verify_password(pw, stored)` | True |
+| A3 | Wrong plaintext against a valid stored hash | `False` (not an exception) |
+| A4 | Same password hashed twice | Hashes differ (random salt); both verify True |
+| A5 | Plaintext never at rest | stored hash `!=` plaintext (subsumed by A1 but asserted directly) |
 
-## C. Registration (real DB)
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| C1 | `register_user("alice", pw)` | Returns row with id/username/created_at; DB hash verifies pw; plaintext absent from DB |
-| C2 | Register same username twice | Second raises `UsernameTakenError`; users table still has exactly 1 row |
-| C3 | `register_user("Alice", pw)` when `alice` exists | Succeeds — usernames case-sensitive |
-| C4 | Validation runs before insert | Invalid input leaves users table empty |
-
-## D. Authentication (real DB)
+## B. `verify_password` robustness (edge / error paths)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| D1 | Correct username + password | Returns the stored user row (id, username) |
-| D2 | Correct username, wrong password | `InvalidCredentialsError` |
-| D3 | Unknown username | `InvalidCredentialsError` (same type as D2 — no enumeration) |
-| D4 | Empty-string username or password | `InvalidCredentialsError` |
+| B1 | Empty stored string / arbitrary garbage | `False` |
+| B2 | Wrong field count (3 or 5 `$`-parts) | `False` |
+| B3 | Unknown method token (`scrypt$...`) | `False` |
+| B4 | Non-numeric / zero / negative iteration count | `False` (no crash, no KDF run) |
+| B5 | Absurdly large iteration count | `False` before any KDF work (CPU guard) |
+| B6 | Non-hex salt or digest fields | `False` |
+| B7 | Non-string `stored` (int/None/list) | `False`, no exception |
+| B8 | Correct hash but one hex char of digest flipped | `False` |
 
-## E. Session helpers (dict mock — no Flask)
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| E1 | `login_session(sess, uid)` | `sess["user_id"] == uid` |
-| E2 | Session with stale keys (`{"cart": 1, "user_id": 99}`), then login | Old keys/values gone, only new `user_id` remains (fixation mitigation) |
-| E3 | Login as alice then as bob | `session_user_id` reports bob only |
-| E4 | `logout_session(sess)` | Mapping empty afterwards; idempotent on empty dict |
-| E5 | `session_user_id` on empty/anonymous dict | `None` |
-| E6 | `current_user(sess)` | Row for live user; `None` when anonymous; `None` when the user row was deleted |
-
-## F. HTTP API — register (test client)
+## C. Credential storage round trip (real FP-001 DB, seed per card §6)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| F1 | POST /auth/register valid JSON | 201; body `{"id","username"}`; row present in DB with verifiable hash |
-| F2 | Duplicate username | 409 `{"error": ...}` |
-| F3 | Invalid username (bad chars / short) | 400 with `error` message |
-| F4 | Short password | 400 |
-| F5 | Missing field (no password / no username) | 400 |
-| F6 | Wrong content type (`text/plain`) | 415 JSON error |
-| F7 | Malformed JSON body | 400 JSON error |
-| F8 | Response leaks nothing | No `password` / `password_hash` key in any response |
+| C1 | Seed user `alice` with `hash_password("alice-pass-123")` | Row stored; `password_hash` column verifies the password; plaintext absent from the whole row |
+| C2 | Credential check pattern: fetch by username, `verify_password(plain, row["password_hash"])` | True for the right password |
+| C3 | Same pattern with a wrong password | False → caller would refuse login |
+| C4 | Two seeded users, same password | Stored hashes differ (per-user salt) |
 
-## G. HTTP API — login / logout / me (test client)
+## D. Session helpers (minimal Flask shell; card §3.2 semantics)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| G1 | Login with correct credentials | 200 `{"id","username"}`; `Set-Cookie` header issued |
-| G2 | GET /auth/me with the session cookie | 200 `{"id","username"}` matching the logged-in user |
-| G3 | Login wrong password | 401 JSON `error` |
-| G4 | Login unknown user | 401 — identical status and body shape as G3 |
-| G5 | GET /auth/me without login | 401 JSON `error` |
-| G6 | Login, logout, then GET /auth/me | Logout 200 `{"ok": true}`; me → 401 |
-| G7 | Logout without prior login | 200 (idempotent) |
-| G8 | Login alice, then login bob on same client | /auth/me reports bob (session replaced) |
-| G9 | Register + login round trip | 201 then 200 with same id/username; DB row count 1 |
+| D1 | `login_user(uid)` | `current_user_id() == uid` |
+| D2 | Fresh session, no login | `current_user_id() is None` |
+| D3 | `login_user` twice (alice then bob) | Second id wins (plain overwrite) |
+| D4 | `login_user` keeps unrelated session keys | Card: only sets `user_id` (no clear) |
+| D5 | `logout_user()` | `current_user_id() is None`; session emptied |
+| D6 | `logout_user()` when already anonymous | No error (idempotent via `session.clear()`) |
 
-## H. `login_required` decorator
+## E. `login_required` gate (card §7 cases 2–3; dummy protected route)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| H1 | Protected route, anonymous request | 401 JSON `{"error": "authentication required"}`; handler not invoked |
-| H2 | Protected route after login | Handler invoked with `user_id=` kwarg; 200 echo |
+| E1 | Anonymous GET `/protected` | 302; `Location: /login?next=/protected`; handler not invoked |
+| E2 | Anonymous GET nested path `/posts/42/comments` | `Location: /login?next=/posts/42/comments` |
+| E3 | Acceptance flow: `login_user(alice_id)` → revisit protected route | 200 (session held across requests — cookie jar = 会话保持期), handler sees alice's id |
+| E4 | Continuation: several further requests while logged in | Still 200 — no repeated login needed |
+| E5 | `logout_user()` then revisit | Back to 302 intercept (needs re-login) |
+| E6 | Tampered/unsigned session cookie | Treated as anonymous → 302 |
+| E7 | Decorated view metadata | `__name__`/`__doc__` preserved (`functools.wraps`) |
 
-## I. App factory (embedded FP-002 contract)
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| I1 | `create_app()` | Returns Flask app; the four auth rules exist in `url_map` |
-| I2 | Config overrides dict | Applied (`SECRET_KEY`, `TESTING`) |
-| I3 | `$SOCIAL_APP_SECRET_KEY` env set (no overrides) | Used as `SECRET_KEY`; unset → non-empty dev fallback |
-| I4 | Unknown URL / wrong method | JSON error body (no HTML), 404 / 405 |
-| I5 | Factory initializes schema | `users` table exists in the `SOCIAL_DB` file after `create_app()` |
-
-## M. Mock isolation (routes decoupled from domain/DB)
+## F. Isolation (card §6 mock strategy)
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| M1 | Monkeypatch `routes.register_user` with a spy + canned row | Endpoint returns 201 with the canned row's fields; spy called once with parsed `(username, password)` |
-| M2 | Monkeypatch `routes.register_user` to raise `UsernameTakenError` | 409; no DB file rows involved |
-| M3 | Monkeypatch `routes.register_user` to raise `ValidationError` | 400 with the message |
-| M4 | Monkeypatch `routes.authenticate` to raise `InvalidCredentialsError` | 401 without any DB access |
+| F1 | Hash/verify/session groups run with no DB file created | `social_app` never touches storage for pure auth logic |
+| F2 | DB groups never touch the repo default `social_platform.db` | All rows land in the `SOCIAL_DB` tmp file |
 
-Skeleton/test file: `tests/test_fp003_auth_session.py`.
+Skeleton/test file: `tests/test_fp003_auth.py` (card §8 name).
