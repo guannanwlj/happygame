@@ -1,1 +1,1 @@
-"""Social platform application package (FP-001 storage foundation)."""
+"""Social platform package: FP-001 storage foundation, FP-003 auth/session."""
