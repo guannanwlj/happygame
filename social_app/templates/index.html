@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}首页 · 社交平台{% endblock %}
+{% block content %}
+<h1>欢迎使用社交平台</h1>
+<p>这是统一入口：顶部导航汇集全部功能页面，各页面挂载后即可使用。</p>
+<ul>
+  <li><a href="/register">注册</a> 与 <a href="/login">登录</a>：创建账户并进入平台。</li>
+  <li><a href="/friends/requests">好友请求</a>：发起与处理好友请求。</li>
+  <li><a href="/friends">好友列表</a>：查看我的好友。</li>
+  <li><a href="/posts/new">发帖</a>：发布新帖子。</li>
+  <li><a href="/feed">好友动态</a>：浏览好友的时间线。</li>
+</ul>
+<p>当前为骨架阶段：仅本首页可用，其余页面挂载前点击返回 404 属预期。</p>
+{% endblock %}
