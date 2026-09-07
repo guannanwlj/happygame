@@ -22,7 +22,7 @@ a single unified error 「用户名或密码错误」 and establish **no** sessi
 
 1. `social_app/auth.py` — session helpers on top of `flask.session`; password
    hashing with `hashlib.pbkdf2_hmac("sha256", ...)` (60k iterations, 16-byte
-   random salt). Stored format `pbkdf2_sha256$<iterations>$<salt-hex>$<digest-hex>`
+   random salt). Stored format `pbkdf2_sha256$<iterations>$<salt-b64>$<digest-b64>`
    so iteration count travels with the hash. `verify_password` parses the stored
    string and returns `False` (never raises) on any malformed value, comparing
    digests with `hmac.compare_digest`. `login_required` redirects anonymous
