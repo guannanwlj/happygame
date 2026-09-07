@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Social Platform{% endblock %}</title>
+</head>
+<body>
+  <header class="site-header">
+    <span class="site-name">Social Platform</span>
+    <nav class="site-nav">
+      <a href="/login">Login</a>
+      <a href="/register">Register</a>
+      <a href="/feed">Feed</a>
+      <a href="/friends">Friends</a>
+    </nav>
+    <span class="pending-label">Pending</span>
+    <span class="pending-badge">{{ pending_count|default(0) }}</span>
+  </header>
+  <main class="site-content">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
