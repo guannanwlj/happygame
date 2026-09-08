@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}社交小站{% endblock %}</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; color: #222; }
+    nav.site-nav { background: #2c3e50; padding: 0.6rem 1rem; }
+    nav.site-nav a { color: #fff; text-decoration: none; font-weight: bold; }
+    main { max-width: 640px; margin: 1rem auto; padding: 0 1rem; }
+    .flashes { list-style: none; padding: 0; }
+    .flashes li { background: #eaf4ff; border: 1px solid #9cc3e5;
+                  border-radius: 4px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+    .entry { margin: 0.4rem 0; }
+    .entry.disabled { color: #999; }
+    .muted { color: #777; }
+    footer { color: #999; text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <nav class="site-nav"><a href="/">社交小站</a></nav>
+  <main>
+    <ul class="flashes">
+      {% for message in get_flashed_messages() %}<li>{{ message }}</li>{% endfor %}
+    </ul>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>社交小站 · 演示级社交媒体平台</footer>
+</body>
+</html>
