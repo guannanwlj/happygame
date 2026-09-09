@@ -1,0 +1,10 @@
+{
+  "dimensions": [
+    {"key": "budget", "label": "预算档位", "options": ["经济", "舒适", "高档"]},
+    {"key": "pace", "label": "行程节奏", "options": ["紧凑", "均衡", "悠闲"]},
+    {"key": "interest", "label": "兴趣类型", "options": ["自然风光", "历史文化", "美食", "购物", "亲子", "户外运动"]},
+    {"key": "diet", "label": "饮食限制", "options": ["无限制", "素食", "清真", "忌辣"]},
+    {"key": "transport", "label": "交通偏好", "options": ["公共交通优先", "打车优先", "租车自驾", "徒步友好"]}
+  ],
+  "free_text": {"key": "notes", "label": "补充说明", "placeholder": "其他偏好或约束（选填）"}
+}
