@@ -301,11 +301,12 @@ def bind_address(env: Mapping[str, str] | None = None) -> tuple[str, int]:
 
 def create_app() -> SocialApp:
     """Build the skeleton app with every card §3.2 mount point registered."""
+    from social_app.views_register import register as mount_register
+
     app = SocialApp()
     app.route("GET", "/", home_page)
     app.route("GET", "/healthz", healthz)
-    app.route("GET", "/register", not_implemented("注册页面", "FP-006"))
-    app.route("POST", "/register", not_implemented("注册页面", "FP-006"))
+    mount_register(app)
     app.route("GET", "/login", not_implemented("登录与退出", "FP-008"))
     app.route("POST", "/login", not_implemented("登录与退出", "FP-008"))
     app.route("POST", "/logout", not_implemented("登录与退出", "FP-008"))
