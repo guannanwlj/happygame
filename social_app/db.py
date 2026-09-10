@@ -1,8 +1,8 @@
 """SQLite persistence for the social platform (FP-001).
 
-Single storage module for the four core tables (users, friend_requests,
-friendships, posts). Every later feature task reads and writes through the
-generic access API defined here. The database file location is controlled by
+Single storage module for the core tables (users, friend_requests,
+friendships, posts, follows). Every later feature task reads and writes
+through the generic access API defined here. The database file location is controlled by
 the SOCIAL_DB environment variable (read at call time), defaulting to
 social_platform.db in the working directory.
 """
@@ -55,6 +55,15 @@ CREATE TABLE IF NOT EXISTS posts (
   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+
+-- 单向关注（FP-004：A 关注 B 只写 (A,B)，不产生 (B,A)）
+CREATE TABLE IF NOT EXISTS follows (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  follower_id INTEGER NOT NULL REFERENCES users(id),
+  followee_id INTEGER NOT NULL REFERENCES users(id),
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (follower_id, followee_id)
+);
 """
 
 
