@@ -130,7 +130,6 @@ class TestSkeletonNotImplemented:
             ("POST", "/logout", "FP-008"),
             ("GET", "/posts/new", "FP-012"),
             ("POST", "/posts", "FP-012"),
-            ("POST", "/follow", "FP-010"),
         ],
     )
     def test_placeholder_returns_501(self, base_url, method, path, mounting_task):
