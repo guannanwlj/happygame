@@ -311,7 +311,10 @@ def create_app() -> SocialApp:
     app.route("POST", "/logout", not_implemented("登录与退出", "FP-008"))
     app.route("GET", "/posts/new", not_implemented("发帖界面", "FP-012"))
     app.route("POST", "/posts", not_implemented("发帖界面", "FP-012"))
-    app.route("POST", "/follow", not_implemented("关注操作界面", "FP-010"))
+
+    from social_app import views_follow
+
+    views_follow.register(app)
     return app
 
 
