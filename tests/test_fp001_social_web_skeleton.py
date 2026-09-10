@@ -112,24 +112,27 @@ class TestRouterBehavior:
 
 
 class TestSkeletonNotImplemented:
-    """C1–C5: 501 mount points naming the task that will mount them.
+    """C1–C5: every former 501 mount point is now mounted by its feature.
 
-    Login / logout were mounted by FP-008 (see
-    ``tests/test_fp008_login_page.py``), so they are no longer placeholders.
+    Register (FP-006), login / logout (FP-008), posts (FP-012) and follow
+    (FP-010) install real handlers through the registry, so none of them
+    answers 501 any more (see ``tests/test_fp008_login_page.py`` and
+    ``tests/test_fp012_post_page.py``).
     """
 
-    @pytest.mark.parametrize(
-        "method,path,mounting_task",
-        [
-            ("GET", "/posts/new", "FP-012"),
-            ("POST", "/posts", "FP-012"),
-        ],
-    )
-    def test_placeholder_returns_501(self, base_url, method, path, mounting_task):
-        status, _, body = http(method, base_url + path, body=b"x=1")
-        assert status == 501
-        assert "501" in body
-        assert mounting_task in body
+    def test_all_former_placeholders_are_mounted(self, base_url):
+        cases = (
+            ("GET", "/login"),
+            ("POST", "/login"),
+            ("POST", "/logout"),
+            ("GET", "/posts/new"),
+            ("POST", "/posts"),
+        )
+        for method, path in cases:
+            status, _, body = http(method, base_url + path, body=b"x=1")
+            assert status != 501
+            assert "FP-008" not in body
+            assert "FP-012" not in body
 
     def test_login_routes_are_mounted_not_placeholders(self, base_url):
         for method, path in (("GET", "/login"), ("POST", "/login"), ("POST", "/logout")):

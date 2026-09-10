@@ -2,10 +2,11 @@
 
 Stdlib-only stack: `ThreadingHTTPServer` + `BaseHTTPRequestHandler` with a
 「path pattern → handler」 route registry and server-rendered HTML string
-templates. Every later social feature (FP-006 register page, FP-008 login /
-logout, FP-010 follow UI, FP-012 post UI, FP-014 feed) mounts real handlers
-onto the same registry; until then the mount points answer 501 with a note
-naming the mounting task. Request cookies are parsed from the `Cookie` header
+templates. Later social features (FP-006 register page, FP-008 login /
+logout, FP-010 follow UI, FP-014 feed) mount real handlers onto the same
+registry; until then the mount points answer 501 with a note naming the
+mounting task (FP-012's post UI is already mounted through
+`social_app.views_post`). Request cookies are parsed from the `Cookie` header
 so FP-003 can build session handling on top.
 """
 
@@ -289,7 +290,8 @@ def bind_address(env: Mapping[str, str] | None = None) -> tuple[str, int]:
 
 
 def create_app() -> SocialApp:
-    """Build the app with the feed mounted and remaining §3.2 mount points."""
+    """Build the app with the real feed, post and login handlers mounted."""
+    from social_app import views_follow, views_post
     from social_app.views_register import register as mount_register
 
     app = SocialApp()
@@ -308,9 +310,8 @@ def create_app() -> SocialApp:
     app.route("GET", "/posts/new", not_implemented("发帖界面", "FP-012"))
     app.route("POST", "/posts", not_implemented("发帖界面", "FP-012"))
 
-    from social_app import views_follow
-
     views_follow.register(app)
+    views_post.register(app)
     return app
 
 
