@@ -13,8 +13,8 @@ a daemon thread and every request goes through stdlib `urllib.request`.
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| A1 | `GET /` | 200; `Content-Type: text/html`; body is a renderable page (`<!DOCTYPE html>`, title) containing a feed placeholder and links to `/login` + `/register` |
-| A2 | `GET /?debug=1` | 200 — query string ignored for routing |
+| A1 | `GET /` | Mounted by FP-014 as the feed page: anonymous request returns 303 to `/login` (placeholder replaced) |
+| A2 | `GET /?debug=1` | Same 303 — query string ignored for routing |
 | A3 | `GET /healthz` | 200; body exactly `ok`; `text/plain` content type |
 
 ## B. Error / method handling (card §7)
