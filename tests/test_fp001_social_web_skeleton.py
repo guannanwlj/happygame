@@ -117,14 +117,11 @@ class TestSkeletonNotImplemented:
     @pytest.mark.parametrize(
         "method,path,mounting_task",
         [
-            ("GET", "/register", "FP-006"),
-            ("POST", "/register", "FP-006"),
             ("GET", "/login", "FP-008"),
             ("POST", "/login", "FP-008"),
             ("POST", "/logout", "FP-008"),
             ("GET", "/posts/new", "FP-012"),
             ("POST", "/posts", "FP-012"),
-            ("POST", "/follow", "FP-010"),
         ],
     )
     def test_placeholder_returns_501(self, base_url, method, path, mounting_task):
@@ -171,6 +168,16 @@ class TestRouteRegistryExtensibility:
             ("POST", "/posts"),
             ("POST", "/follow"),
         }
+
+    def test_register_routes_are_mounted_over_placeholders(self):
+        from social_app.views_register import register_page, register_submit
+
+        routes = {
+            (route.method, route.pattern): route.handler
+            for route in create_app().routes
+        }
+        assert routes[("GET", "/register")] is register_page
+        assert routes[("POST", "/register")] is register_submit
 
 
 class TestPathParamsAndHelpers:

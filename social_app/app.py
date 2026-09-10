@@ -290,6 +290,8 @@ def bind_address(env: Mapping[str, str] | None = None) -> tuple[str, int]:
 
 def create_app() -> SocialApp:
     """Build the app with the feed mounted and remaining §3.2 mount points."""
+    from social_app.views_register import register as mount_register
+
     app = SocialApp()
     # Imported here (not at module top) to avoid a circular import: the view
     # module imports this one for Request/Response/helpers.
@@ -297,14 +299,16 @@ def create_app() -> SocialApp:
 
     register_feed(app)
     app.route("GET", "/healthz", healthz)
-    app.route("GET", "/register", not_implemented("注册页面", "FP-006"))
-    app.route("POST", "/register", not_implemented("注册页面", "FP-006"))
+    mount_register(app)
     app.route("GET", "/login", not_implemented("登录与退出", "FP-008"))
     app.route("POST", "/login", not_implemented("登录与退出", "FP-008"))
     app.route("POST", "/logout", not_implemented("登录与退出", "FP-008"))
     app.route("GET", "/posts/new", not_implemented("发帖界面", "FP-012"))
     app.route("POST", "/posts", not_implemented("发帖界面", "FP-012"))
-    app.route("POST", "/follow", not_implemented("关注操作界面", "FP-010"))
+
+    from social_app import views_follow
+
+    views_follow.register(app)
     return app
 
 
