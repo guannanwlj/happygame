@@ -31,7 +31,7 @@ a daemon thread and every request goes through stdlib `urllib.request`.
 |---|----------|----------|
 | C1 | `GET /register` | 501; body names FP-006 |
 | C2 | `POST /register` | 501; body names FP-006 |
-| C3 | `GET /login` / `POST /login` / `POST /logout` | 501; body names FP-008 |
+| C3 | `GET /login` / `POST /login` / `POST /logout` | mounted by FP-008: no longer 501 (see `fp008-login-page.md`) |
 | C4 | `GET /posts/new` / `POST /posts` | 501; body names FP-012 |
 | C5 | `POST /follow` | 501; body names FP-010 |
 
