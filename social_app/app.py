@@ -115,17 +115,6 @@ def parse_form(body: bytes) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 
 
-def home_page(_request: Request) -> Response:
-    """GET / — feed placeholder; FP-014 mounts the real feed here."""
-    body = (
-        '<section id="feed" class="placeholder">\n'
-        "  <p>首页 / 帖流占位：真帖流由后续功能（FP-014）挂载。</p>\n"
-        '  <nav><a href="/login">登录</a> · <a href="/register">注册</a></nav>\n'
-        "</section>"
-    )
-    return html_response("社交平台", body)
-
-
 def healthz(_request: Request) -> Response:
     """GET /healthz — liveness probe."""
     return text_response("ok")
@@ -300,11 +289,15 @@ def bind_address(env: Mapping[str, str] | None = None) -> tuple[str, int]:
 
 
 def create_app() -> SocialApp:
-    """Build the skeleton app with every card §3.2 mount point registered."""
+    """Build the app with the feed mounted and remaining §3.2 mount points."""
     from social_app.views_register import register as mount_register
 
     app = SocialApp()
-    app.route("GET", "/", home_page)
+    # Imported here (not at module top) to avoid a circular import: the view
+    # module imports this one for Request/Response/helpers.
+    from social_app.views_feed import register as register_feed
+
+    register_feed(app)
     app.route("GET", "/healthz", healthz)
     mount_register(app)
     app.route("GET", "/login", not_implemented("登录与退出", "FP-008"))

@@ -69,24 +69,18 @@ def base_url():
 
 
 class TestHomePage:
-    """A1, A2: GET / renders the feed placeholder."""
+    """A1, A2: GET / is the FP-014 feed page (placeholder replaced)."""
 
-    def test_root_renders_feed_placeholder(self, base_url):
-        status, headers, body = http("GET", base_url + "/")
-        assert status == 200
-        assert headers["Content-Type"].startswith("text/html")
-        assert "<!DOCTYPE html>" in body
-        assert "占位" in body
+    def test_root_redirects_anonymous_to_login(self):
+        response = create_app().dispatch(Request(method="GET", path="/"))
+        assert response.status == 303
+        assert response.headers["Location"] == "/login"
 
-    def test_root_links_to_login_and_register(self, base_url):
-        _, _, body = http("GET", base_url + "/")
-        assert 'href="/login"' in body
-        assert 'href="/register"' in body
-
-    def test_root_ignores_query_string(self, base_url):
-        status, _, body = http("GET", base_url + "/?debug=1")
-        assert status == 200
-        assert "占位" in body
+    def test_root_ignores_query_string(self):
+        response = create_app().dispatch(
+            Request(method="GET", path="/", query={"debug": ["1"]})
+        )
+        assert response.status == 303
 
 
 class TestHealthz:
