@@ -300,9 +300,11 @@ def create_app() -> SocialApp:
     register_feed(app)
     app.route("GET", "/healthz", healthz)
     mount_register(app)
-    app.route("GET", "/login", not_implemented("登录与退出", "FP-008"))
-    app.route("POST", "/login", not_implemented("登录与退出", "FP-008"))
-    app.route("POST", "/logout", not_implemented("登录与退出", "FP-008"))
+    # Imported here (not at module top) to avoid a circular import: the view
+    # module imports this one for Request/Response/helpers.
+    from social_app.views_login import register as register_login
+
+    register_login(app)
     app.route("GET", "/posts/new", not_implemented("发帖界面", "FP-012"))
     app.route("POST", "/posts", not_implemented("发帖界面", "FP-012"))
 

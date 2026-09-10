@@ -112,14 +112,15 @@ class TestRouterBehavior:
 
 
 class TestSkeletonNotImplemented:
-    """C1–C5: 501 mount points naming the task that will mount them."""
+    """C1–C5: 501 mount points naming the task that will mount them.
+
+    Login / logout were mounted by FP-008 (see
+    ``tests/test_fp008_login_page.py``), so they are no longer placeholders.
+    """
 
     @pytest.mark.parametrize(
         "method,path,mounting_task",
         [
-            ("GET", "/login", "FP-008"),
-            ("POST", "/login", "FP-008"),
-            ("POST", "/logout", "FP-008"),
             ("GET", "/posts/new", "FP-012"),
             ("POST", "/posts", "FP-012"),
         ],
@@ -129,6 +130,12 @@ class TestSkeletonNotImplemented:
         assert status == 501
         assert "501" in body
         assert mounting_task in body
+
+    def test_login_routes_are_mounted_not_placeholders(self, base_url):
+        for method, path in (("GET", "/login"), ("POST", "/login"), ("POST", "/logout")):
+            status, _, body = http(method, base_url + path, body=b"x=1")
+            assert status != 501
+            assert "FP-008" not in body
 
 
 class TestRouteRegistryExtensibility:

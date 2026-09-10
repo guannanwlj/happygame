@@ -40,9 +40,11 @@ engineering conventions.
   HTTP handler before dispatch. FP-003 builds session logic on this.
 - Skeleton handlers per card §3.2: `GET /` renders a readable feed
   placeholder (title + links to `/login` and `/register`); `GET /healthz`
-  returns `200 "ok"` (text/plain); the remaining eight routes return 501
+  returns `200 "ok"` (text/plain); the remaining routes return 501
   text placeholders naming the task that will mount them. All ten routes are
-  registered in `create_app()`.
+  registered in `create_app()`. (The three login/logout mount points were
+  later replaced by real FP-008 handlers; register / posts / follow keep
+  their 501 placeholders.)
 
 ## Key decisions
 
