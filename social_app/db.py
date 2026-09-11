@@ -74,16 +74,32 @@ CREATE TABLE IF NOT EXISTS likes (
   UNIQUE (user_id, post_id)
 );
 
--- 评论（按帖子读取，时间升序）
+-- 评论（按帖子读取，时间升序；parent_id 为空＝顶层评论，否则指向顶层父评论）
 CREATE TABLE IF NOT EXISTS comments (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   post_id    INTEGER NOT NULL REFERENCES posts(id),
   author_id  INTEGER NOT NULL REFERENCES users(id),
   content    TEXT    NOT NULL,
-  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  parent_id  INTEGER REFERENCES comments(id)
 );
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id, created_at);
 """
+
+
+def _upgrade_schema(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after a database was first created.
+
+    ``CREATE TABLE IF NOT EXISTS`` leaves an already-created ``comments``
+    table untouched, so the FP-002 self-reference column is added explicitly.
+    The check makes repeated calls idempotent; existing rows backfill to
+    ``NULL`` (top-level comment semantics).
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(comments)")}
+    if "parent_id" not in columns:
+        conn.execute(
+            "ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id)"
+        )
 
 
 def db_path() -> str:
@@ -111,8 +127,12 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
     if conn is None:
         with contextlib.closing(get_connection()) as own:
             own.executescript(SCHEMA_SQL)
+            _upgrade_schema(own)
+            own.commit()
         return
     conn.executescript(SCHEMA_SQL)
+    _upgrade_schema(conn)
+    conn.commit()
 
 
 def query_all(sql: str, params: tuple = ()) -> list[sqlite3.Row]:

@@ -12,24 +12,38 @@ import sqlite3
 from social_app import db
 
 
-def add_comment(post_id: int, author_id: int, content: str) -> int:
+def add_comment(
+    post_id: int, author_id: int, content: str, parent_id: int | None = None
+) -> int:
     """Store a comment and return its newly assigned id.
 
-    ``created_at`` is filled by the schema default. Foreign keys on
-    ``post_id``/``author_id`` are enforced, so referencing a missing post or
-    user raises :class:`sqlite3.IntegrityError`.
+    ``parent_id`` defaults to ``None`` (a top-level comment); when given it
+    references the top-level comment being replied to. ``created_at`` is
+    filled by the schema default. Foreign keys on
+    ``post_id``/``author_id``/``parent_id`` are enforced, so referencing a
+    missing row raises :class:`sqlite3.IntegrityError`.
     """
     cur = db.execute(
-        "INSERT INTO comments (post_id, author_id, content) VALUES (?, ?, ?)",
-        (post_id, author_id, content),
+        "INSERT INTO comments (post_id, author_id, content, parent_id)"
+        " VALUES (?, ?, ?, ?)",
+        (post_id, author_id, content, parent_id),
     )
     return cur.lastrowid
+
+
+def get_comment(comment_id: int) -> sqlite3.Row | None:
+    """Return one comment row, or None if the id does not exist."""
+    return db.query_one(
+        "SELECT id, post_id, author_id, content, created_at, parent_id"
+        " FROM comments WHERE id = ?",
+        (comment_id,),
+    )
 
 
 def list_comments(post_id: int) -> list[sqlite3.Row]:
     """Return a post's comments oldest first, tie-broken by ascending id."""
     return db.query_all(
-        "SELECT id, post_id, author_id, content, created_at FROM comments"
-        " WHERE post_id = ? ORDER BY created_at ASC, id ASC",
+        "SELECT id, post_id, author_id, content, created_at, parent_id"
+        " FROM comments WHERE post_id = ? ORDER BY created_at ASC, id ASC",
         (post_id,),
     )
