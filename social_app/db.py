@@ -83,6 +83,15 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id, created_at);
+
+-- 评论点赞（同一用户对同一评论至多一条，UNIQUE 兜底幂等；独立于帖子 likes 表）
+CREATE TABLE IF NOT EXISTS comment_likes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  comment_id INTEGER NOT NULL REFERENCES comments(id),
+  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (user_id, comment_id)
+);
 """
 
 
