@@ -170,14 +170,20 @@ class TestCommentAggregation:
     """Acceptance 2: comments ascending with author username."""
 
     def test_feed_comments_ascending_with_author(self, seeded):
-        insert_comment(seeded["post_b"], seeded["c"], "older", "2026-01-01T01:00:00Z")
+        older = insert_comment(
+            seeded["post_b"], seeded["c"], "older", "2026-01-01T01:00:00Z"
+        )
         insert_comment(seeded["post_b"], seeded["b"], "newer", "2026-01-01T02:00:00Z")
         row = {r["post_id"]: r for r in feed.get_feed(seeded["a"])}[seeded["post_b"]]
         assert [c["content"] for c in row["comments"]] == ["older", "newer"]
         assert row["comments"][0] == {
+            "comment_id": older,
+            "parent_id": None,
             "author": "carol",
             "content": "older",
             "created_at": "2026-01-01T01:00:00Z",
+            "like_count": 0,
+            "liked_by_me": False,
         }
         assert [c["author"] for c in row["comments"]] == ["carol", "bob"]
 
