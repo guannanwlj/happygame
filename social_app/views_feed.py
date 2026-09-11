@@ -14,9 +14,10 @@ FP-009 extends comment rendering: comments are split into top-level entries and
 replies by ``parent_id``, replies are nested one level under their parent, and
 each comment shows its like count and the viewer's comment-like state. FP-005
 renders that comment-like control through ``_render_comment_likes`` (the
-like/unlike form pointing at the FP-004 routes). FP-007's ``_render_reply_form``
-/ ``_render_replies`` are consumed when they exist and replaced by small local
-fallbacks otherwise (card §6), so the module stays independently renderable.
+like/unlike form pointing at the FP-004 routes). FP-007 adds the reply entry
+point: every top-level comment renders ``_render_reply_form`` (targeting FP-004's
+``POST /comments/<id>/replies``) and ``_render_replies`` nests its replies, in
+the order given, directly beneath it.
 
 This module owns orchestration and rendering only; no database access and no
 pagination (card §4/§5). The dependencies are imported as module globals so the
@@ -110,24 +111,38 @@ def _render_comment_likes(entry) -> str:
     )
 
 
-def _fallback_reply_form(entry) -> str:
-    """No reply entry point until FP-007 provides one (card §6)."""
-    return ""
+def _render_reply_form(entry) -> str:
+    """Render a top-level comment's reply form (FP-007).
+
+    The action targets FP-004's ``POST /comments/<id>/replies`` and the body
+    field is ``content``; the entry point is rendered for every top-level
+    comment regardless of whether it already has replies (card §4).
+    """
+    comment_id = _escaped(entry, "comment_id")
+    return (
+        f'<form class="reply-form" action="/comments/{comment_id}/replies"'
+        ' method="post">\n'
+        '  <textarea name="content"></textarea>\n'
+        '  <button type="submit">回复</button>\n'
+        "</form>"
+    )
 
 
-def _fallback_replies(entry, replies) -> str:
-    """Render a parent comment's replies until FP-007 provides the list."""
+def _render_replies(entry, replies) -> str:
+    """Render ``entry``'s replies as a one-level ``<ul>`` (FP-007).
+
+    ``replies`` is already ordered ``created_at ASC, id ASC`` by the caller
+    (FP-009's split), so it is rendered as given. Each reply goes through
+    :func:`_render_comment` with ``is_reply=True``, which keeps the reply from
+    gaining a reply entry point (one level only, card §2/§4).
+    """
     items = "\n".join(_render_comment(reply, is_reply=True) for reply in replies)
     return f'<ul class="reply-list">\n{items}\n</ul>'
 
 
-# FP-007 (``_render_reply_form`` / ``_render_replies``) owns the real
-# implementations. Until it lands these names resolve to the local fallbacks,
-# keeping the documented contract resolvable and monkeypatchable while this
-# module stays independently renderable (card §6). FP-005's
-# ``_render_comment_likes`` is defined above.
-_render_reply_form = _fallback_reply_form
-_render_replies = _fallback_replies
+# FP-005's ``_render_comment_likes`` and FP-007's ``_render_reply_form`` /
+# ``_render_replies`` are the real implementations, defined above. The local
+# fallbacks are no longer needed now that both features have landed.
 
 
 def _split_comments(comments) -> tuple[list, dict]:
