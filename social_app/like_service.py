@@ -34,4 +34,4 @@ def count_likes(post_id: int) -> int:
     row = db.query_one(
         "SELECT COUNT(*) AS n FROM likes WHERE post_id = ?", (post_id,)
     )
-    return row["n"]
+    return int(row["n"])

@@ -132,6 +132,13 @@ class TestCountLikes:
         assert like_service.count_likes(p) == 1
         assert like_service.count_likes(q) == 0
 
+    def test_mutations_and_count_return_int(self):
+        a = insert_user("alice")
+        p = insert_post(a)
+        assert isinstance(like_service.like(a, p), int)
+        assert isinstance(like_service.unlike(a, p), int)
+        assert isinstance(like_service.count_likes(p), int)
+
 
 class TestStorageIsolation:
     """Edge case: service verifiable with FP-015 mocked away."""
