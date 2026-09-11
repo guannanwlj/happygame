@@ -5,6 +5,11 @@ Makes ``GET /`` the home feed: guard the request through FP-003
 (:mod:`social_app.feed`) and render them newest-first. With no posts the page
 shows an empty-state guide, and anonymous visitors are sent to ``/login``.
 
+FP-022 extends the per-post rendering with the interaction layer: the like
+total, the viewer's like/unlike form (from the FP-023 row's ``like_count`` /
+``liked_by_me``) and the comment form plus list (``comments``). The forms point
+at the FP-020/FP-021 routes; this module only renders them.
+
 This module owns orchestration and rendering only; no database access and no
 pagination (card §4/§5). The dependencies are imported as module globals so the
 card §6 tests can monkeypatch them; until FP-005 lands, ``get_feed`` falls back
@@ -34,25 +39,89 @@ EMPTY_STATE_HTML = (
 )
 
 
-def _row_value(row, key: str) -> str:
-    """Read ``key`` from a ``sqlite3.Row``/``dict`` or a mock namespace."""
+def _row_value(row, key: str, default=None):
+    """Read ``key`` from a ``sqlite3.Row``/``dict`` or a mock namespace.
+
+    Missing keys return ``default`` so FP-014 rows without interaction columns
+    keep rendering (card §4). The raw value is returned (not stringified) so
+    ``liked_by_me`` keeps its boolean type.
+    """
     try:
         value = row[key]
     except (TypeError, KeyError, IndexError):
-        value = getattr(row, key)
-    return str(value)
+        value = getattr(row, key, default)
+    return default if value is None else value
+
+
+def _escaped(row, key: str, default="") -> str:
+    """Read ``key`` and HTML-escape it for a text node or attribute."""
+    return html.escape(str(_row_value(row, key, default)))
+
+
+def _render_likes(row) -> str:
+    """Render the like total and the like/unlike form for one post."""
+    post_id = _escaped(row, "post_id")
+    like_count = _escaped(row, "like_count", 0)
+    if _row_value(row, "liked_by_me", False):
+        action, label = f"/posts/{post_id}/unlike", "取消点赞"
+    else:
+        action, label = f"/posts/{post_id}/like", "点赞"
+    return (
+        '<div class="post-likes">\n'
+        f'  <span class="like-count">{like_count}</span>\n'
+        f'  <form class="like-form" action="{action}" method="post">\n'
+        f'    <button type="submit">{label}</button>\n'
+        "  </form>\n"
+        "</div>"
+    )
+
+
+def _render_comment(entry) -> str:
+    """Render one comment as an escaped ``<li>``."""
+    author = _escaped(entry, "author")
+    created_at = _escaped(entry, "created_at")
+    content = _escaped(entry, "content")
+    return (
+        '<li class="comment">\n'
+        f'  <span class="comment-author">{author}</span>\n'
+        f'  <time class="comment-time" datetime="{created_at}">{created_at}</time>\n'
+        f'  <p class="comment-content">{content}</p>\n'
+        "</li>"
+    )
+
+
+def _render_comments(row) -> str:
+    """Render the comment form plus the list (or the empty state)."""
+    post_id = _escaped(row, "post_id")
+    comments = _row_value(row, "comments", None) or []
+    if comments:
+        items = "\n".join(_render_comment(entry) for entry in comments)
+        listing = f'<ul class="comment-list">\n{items}\n</ul>'
+    else:
+        listing = '<p class="comments-empty">暂无评论</p>'
+    return (
+        '<section class="post-comments">\n'
+        f'  <form class="comment-form" action="/posts/{post_id}/comments" method="post">\n'
+        '    <textarea name="content"></textarea>\n'
+        '    <button type="submit">发表评论</button>\n'
+        "  </form>\n"
+        f"  {listing}\n"
+        "</section>"
+    )
 
 
 def _render_post(row) -> str:
-    """Render one feed row as an escaped ``<article>``."""
-    username = html.escape(_row_value(row, "username"))
-    created_at = html.escape(_row_value(row, "created_at"))
-    content = html.escape(_row_value(row, "content"))
+    """Render one feed row as an escaped ``<article>`` with interactions."""
+    username = _escaped(row, "username")
+    created_at = _escaped(row, "created_at")
+    content = _escaped(row, "content")
     return (
         '<article class="post">\n'
         f'  <header class="post-author">{username}</header>\n'
         f'  <time class="post-time" datetime="{created_at}">{created_at}</time>\n'
         f'  <p class="post-content">{content}</p>\n'
+        f"  {_render_likes(row)}\n"
+        f"  {_render_comments(row)}\n"
         "</article>"
     )
 
