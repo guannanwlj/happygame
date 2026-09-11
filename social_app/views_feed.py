@@ -12,10 +12,11 @@ at the FP-020/FP-021 routes; this module only renders them.
 
 FP-009 extends comment rendering: comments are split into top-level entries and
 replies by ``parent_id``, replies are nested one level under their parent, and
-each comment shows its like count and the viewer's comment-like state. FP-005's
-``_render_comment_likes`` and FP-007's ``_render_reply_form`` / ``_render_replies``
-are consumed when they exist and replaced by small local fallbacks otherwise
-(card §6), so the module stays independently renderable.
+each comment shows its like count and the viewer's comment-like state. FP-005
+renders that comment-like control through ``_render_comment_likes`` (the
+like/unlike form pointing at the FP-004 routes). FP-007's ``_render_reply_form``
+/ ``_render_replies`` are consumed when they exist and replaced by small local
+fallbacks otherwise (card §6), so the module stays independently renderable.
 
 This module owns orchestration and rendering only; no database access and no
 pagination (card §4/§5). The dependencies are imported as module globals so the
@@ -83,17 +84,28 @@ def _render_likes(row) -> str:
     )
 
 
-def _fallback_comment_likes(entry) -> str:
-    """Show a comment's like total and viewer state until FP-005 lands."""
+def _render_comment_likes(entry) -> str:
+    """Render a comment's like total and the viewer's like/unlike form.
+
+    ``like_count`` / ``liked_by_me`` default to ``0`` / ``False`` so comment
+    rows without the FP-009 fields still render (card §4). The form targets the
+    FP-004 routes; this module only renders them (card §5).
+    """
     comment_id = _escaped(entry, "comment_id")
     like_count = _escaped(entry, "like_count", 0)
     liked = bool(_row_value(entry, "liked_by_me", False))
+    if liked:
+        action, label = f"/comments/{comment_id}/unlike", "取消点赞"
+    else:
+        action, label = f"/comments/{comment_id}/like", "点赞"
+    state = "已赞" if liked else "未赞"
     return (
-        f'<div class="comment-likes" data-comment-id="{comment_id}" '
-        f'data-like-count="{like_count}" '
-        f'data-liked-by-me="{str(liked).lower()}">\n'
+        '<div class="comment-likes">\n'
         f'  <span class="comment-like-count">{like_count}</span>\n'
-        f'  <span class="comment-liked-state">{"已赞" if liked else "未赞"}</span>\n'
+        f'  <span class="comment-liked-state">{state}</span>\n'
+        f'  <form class="comment-like-form" action="{action}" method="post">\n'
+        f'    <button type="submit">{label}</button>\n'
+        "  </form>\n"
         "</div>"
     )
 
@@ -109,11 +121,11 @@ def _fallback_replies(entry, replies) -> str:
     return f'<ul class="reply-list">\n{items}\n</ul>'
 
 
-# FP-005 (``_render_comment_likes``) and FP-007 (``_render_reply_form`` /
-# ``_render_replies``) own the real implementations. Until they land these names
-# resolve to the local fallbacks, keeping the documented contract resolvable and
-# monkeypatchable while this module stays independently renderable (card §6).
-_render_comment_likes = _fallback_comment_likes
+# FP-007 (``_render_reply_form`` / ``_render_replies``) owns the real
+# implementations. Until it lands these names resolve to the local fallbacks,
+# keeping the documented contract resolvable and monkeypatchable while this
+# module stays independently renderable (card §6). FP-005's
+# ``_render_comment_likes`` is defined above.
 _render_reply_form = _fallback_reply_form
 _render_replies = _fallback_replies
 
