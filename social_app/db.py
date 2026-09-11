@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS follows (
   created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (follower_id, followee_id)
 );
+
+-- 点赞（同一用户对同一帖子至多一条，UNIQUE 兜底幂等）
+CREATE TABLE IF NOT EXISTS likes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  post_id    INTEGER NOT NULL REFERENCES posts(id),
+  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (user_id, post_id)
+);
 """
 
 
