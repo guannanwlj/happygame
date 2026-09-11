@@ -43,9 +43,7 @@ then returns `303` to `/` (or a readable error page).
   try:
       authorize_interaction(actor_id, post_id)
       add_comment(post_id, actor_id, content)
-  except InteractionError as exc:
-      return _error_page(str(exc))
-  except CommentError as exc:
+  except (InteractionError, CommentError) as exc:
       return _error_page(str(exc))
   return redirect(HOME_PATH)
   ```
@@ -61,9 +59,10 @@ then returns `303` to `/` (or a readable error page).
    "no write"). Since FP-019 is read-only this is also structurally safe.
 2. **Login guard first.** An anonymous request short-circuits to the FP-003
    `303 /login` response before parsing or any service call (acceptance 3).
-3. **Two except clauses, one renderer.** `InteractionError` and `CommentError`
-   are distinct types from distinct modules; catching both and rendering the
-   same readable page keeps the contract clear while avoiding duplicate HTML.
+3. **One combined except, one renderer.** `InteractionError` and `CommentError`
+    are distinct types from distinct modules, but both mean "the submit was
+    rejected with a readable reason"; catching them together and rendering the
+    same readable page keeps the contract clear while avoiding duplicate HTML.
 4. **No database access, no `list_comments`.** Success only redirects; the
    feed's comment list is FP-022. This module never imports `social_app.db`.
 5. **No HTML form rendering.** The comment input lives in the FP-022 feed page;
