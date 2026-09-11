@@ -41,5 +41,6 @@ service. Seed: two users and one post.
 |---|----------|----------|
 | E1 | Storage absent: monkeypatch `add_like`/`remove_like`/`count_likes` with in-memory fakes; `like(A, P)` twice then `unlike(A, P)` | `1, 1, 0`; proves the service is verifiable without FP-015 |
 | E2 | Return types | All three functions return `int` |
+| E3 | Card §3.2/§4 storage contract | `is_liked` is importable from the service and reflects like/unlike state |
 
 Skeleton/test file: `tests/test_fp017_like_service.py`.

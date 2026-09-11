@@ -158,3 +158,16 @@ class TestStorageIsolation:
         assert like_service.like(1, 1) == 1
         assert like_service.like(1, 1) == 1
         assert like_service.unlike(1, 1) == 0
+
+
+class TestStorageContractExposure:
+    """Card §3.2/§4: storage primitives stay importable from the service."""
+
+    def test_is_liked_reexported_and_reflects_state(self):
+        a = insert_user("alice")
+        p = insert_post(a)
+        assert like_service.is_liked(a, p) is False
+        like_service.like(a, p)
+        assert like_service.is_liked(a, p) is True
+        like_service.unlike(a, p)
+        assert like_service.is_liked(a, p) is False
