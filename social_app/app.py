@@ -291,7 +291,7 @@ def bind_address(env: Mapping[str, str] | None = None) -> tuple[str, int]:
 
 def create_app() -> SocialApp:
     """Build the app with the real feed, post and login handlers mounted."""
-    from social_app import views_follow, views_post
+    from social_app import views_follow, views_like, views_post
     from social_app.views_register import register as mount_register
 
     app = SocialApp()
@@ -311,6 +311,7 @@ def create_app() -> SocialApp:
     app.route("POST", "/posts", not_implemented("发帖界面", "FP-012"))
 
     views_follow.register(app)
+    views_like.register(app)
     views_post.register(app)
     return app
 
