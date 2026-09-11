@@ -10,6 +10,13 @@ total, the viewer's like/unlike form (from the FP-023 row's ``like_count`` /
 ``liked_by_me``) and the comment form plus list (``comments``). The forms point
 at the FP-020/FP-021 routes; this module only renders them.
 
+FP-009 extends comment rendering: comments are split into top-level entries and
+replies by ``parent_id``, replies are nested one level under their parent, and
+each comment shows its like count and the viewer's comment-like state. FP-005's
+``_render_comment_likes`` and FP-007's ``_render_reply_form`` / ``_render_replies``
+are consumed when they exist and replaced by small local fallbacks otherwise
+(card §6), so the module stays independently renderable.
+
 This module owns orchestration and rendering only; no database access and no
 pagination (card §4/§5). The dependencies are imported as module globals so the
 card §6 tests can monkeypatch them; until FP-005 lands, ``get_feed`` falls back
@@ -76,26 +83,100 @@ def _render_likes(row) -> str:
     )
 
 
-def _render_comment(entry) -> str:
-    """Render one comment as an escaped ``<li>``."""
-    author = _escaped(entry, "author")
-    created_at = _escaped(entry, "created_at")
-    content = _escaped(entry, "content")
+def _fallback_comment_likes(entry) -> str:
+    """Show a comment's like total and viewer state until FP-005 lands."""
+    comment_id = _escaped(entry, "comment_id")
+    like_count = _escaped(entry, "like_count", 0)
+    liked = bool(_row_value(entry, "liked_by_me", False))
     return (
-        '<li class="comment">\n'
-        f'  <span class="comment-author">{author}</span>\n'
-        f'  <time class="comment-time" datetime="{created_at}">{created_at}</time>\n'
-        f'  <p class="comment-content">{content}</p>\n'
-        "</li>"
+        f'<div class="comment-likes" data-comment-id="{comment_id}" '
+        f'data-like-count="{like_count}" '
+        f'data-liked-by-me="{str(liked).lower()}">\n'
+        f'  <span class="comment-like-count">{like_count}</span>\n'
+        f'  <span class="comment-liked-state">{"已赞" if liked else "未赞"}</span>\n'
+        "</div>"
     )
 
 
+def _fallback_reply_form(entry) -> str:
+    """No reply entry point until FP-007 provides one (card §6)."""
+    return ""
+
+
+def _fallback_replies(entry, replies) -> str:
+    """Render a parent comment's replies until FP-007 provides the list."""
+    items = "\n".join(_render_comment(reply, is_reply=True) for reply in replies)
+    return f'<ul class="reply-list">\n{items}\n</ul>'
+
+
+# FP-005 (``_render_comment_likes``) and FP-007 (``_render_reply_form`` /
+# ``_render_replies``) own the real implementations. Until they land these names
+# resolve to the local fallbacks, keeping the documented contract resolvable and
+# monkeypatchable while this module stays independently renderable (card §6).
+_render_comment_likes = _fallback_comment_likes
+_render_reply_form = _fallback_reply_form
+_render_replies = _fallback_replies
+
+
+def _split_comments(comments) -> tuple[list, dict]:
+    """Split comments into top-level entries and replies grouped by parent.
+
+    A reply whose parent is not a known top-level comment (legacy or malformed
+    data) is promoted to top-level rather than dropped. Replies are never
+    nested more than one level (card §2).
+    """
+    top_ids = {
+        _row_value(entry, "comment_id", None)
+        for entry in comments
+        if _row_value(entry, "parent_id", None) is None
+    }
+    tops: list = []
+    replies_by_parent: dict = {}
+    for entry in comments:
+        parent_id = _row_value(entry, "parent_id", None)
+        if parent_id is None or parent_id not in top_ids:
+            tops.append(entry)
+        else:
+            replies_by_parent.setdefault(parent_id, []).append(entry)
+    return tops, replies_by_parent
+
+
+def _render_comment(entry, replies=(), *, is_reply=False) -> str:
+    """Render one escaped ``<li>``; nest ``replies`` under a top-level entry."""
+    author = _escaped(entry, "author")
+    created_at = _escaped(entry, "created_at")
+    content = _escaped(entry, "content")
+    css_class = "comment reply" if is_reply else "comment"
+    lines = [
+        f'<li class="{css_class}">',
+        f'  <span class="comment-author">{author}</span>',
+        f'  <time class="comment-time" datetime="{created_at}">{created_at}</time>',
+        f'  <p class="comment-content">{content}</p>',
+        f"  {_render_comment_likes(entry)}",
+    ]
+    if not is_reply:
+        form = _render_reply_form(entry)
+        if form:
+            lines.append(f"  {form}")
+        if replies:
+            lines.append(f"  {_render_replies(entry, replies)}")
+    lines.append("</li>")
+    return "\n".join(lines)
+
+
 def _render_comments(row) -> str:
-    """Render the comment form plus the list (or the empty state)."""
+    """Render the comment form plus the nested list (or the empty state)."""
     post_id = _escaped(row, "post_id")
     comments = _row_value(row, "comments", None) or []
     if comments:
-        items = "\n".join(_render_comment(entry) for entry in comments)
+        tops, replies_by_parent = _split_comments(comments)
+        items = "\n".join(
+            _render_comment(
+                entry,
+                replies_by_parent.get(_row_value(entry, "comment_id", None), ()),
+            )
+            for entry in tops
+        )
         listing = f'<ul class="comment-list">\n{items}\n</ul>'
     else:
         listing = '<p class="comments-empty">暂无评论</p>'
