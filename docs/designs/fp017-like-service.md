@@ -31,8 +31,11 @@ the post's current total) and `count_likes(post_id)`.
 3. **`LikeError` intentionally omitted.** The card lists no validation or error
    paths for this task; unknown post/user integrity is FP-019/FP-020's concern.
    Keeping the surface to the three contract functions avoids speculative code.
-4. **`is_liked` imported but unused here** is avoided; only `add_like` and
-   `remove_like` are imported (the storage module exposes `is_liked` for FP-022).
+4. **`is_liked` is re-exported but not consulted.** The card §4 lists it in the
+   module-level import. It is included (and listed in `__all__`) so callers get
+   the full storage contract from one place and can monkeypatch it like the
+   other primitives; the service's own rules still use `add_like`/`remove_like`
+   plus the `count_likes` query only.
 
 ## Verification
 
