@@ -93,6 +93,18 @@ CREATE TABLE IF NOT EXISTS comment_likes (
   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (user_id, comment_id)
 );
+
+-- 帖子图片（FP-004：每张图一行，position=1..n 记录发帖提交顺序，D-7 展示顺序在此落地；
+-- 同帖同 position 由 UNIQUE 兜底，重复写触发 IntegrityError）
+CREATE TABLE IF NOT EXISTS post_images (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id      INTEGER NOT NULL REFERENCES posts(id),
+  storage_name TEXT    NOT NULL,
+  position     INTEGER NOT NULL,
+  created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (post_id, position)
+);
+CREATE INDEX IF NOT EXISTS idx_post_images_post ON post_images(post_id, position);
 """
 
 
