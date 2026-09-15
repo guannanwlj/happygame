@@ -1,11 +1,13 @@
-"""Posting UI for the social platform (FP-012).
+"""Posting UI for the social platform (FP-012, FP-005 image picker).
 
 Renders the post form and orchestrates submission: the login guard is
 delegated to FP-003, form decoding to the FP-001 web layer, and validation /
 persistence to FP-013's ``social_app.posts`` (resolved lazily so this module
 imports even while that task is not mounted). A successful POST redirects to
 the feed; a rejected one re-renders the form with the reason and the escaped
-text preserved.
+text preserved. The form is multipart-encoded with a native multi-file
+``images`` picker (FP-005); the server-side multipart handling belongs to
+FP-006 and is intentionally absent here.
 """
 
 import html
@@ -26,10 +28,14 @@ POST_SUCCESS_LOCATION = "/"
 FORM_TITLE = "发布帖子"
 
 _FORM_TEMPLATE = (
-    '<form method="post" action="{action}">\n'
+    '<form method="post" action="{action}" '
+    'enctype="multipart/form-data">\n'
     '  <label for="content">内容</label>\n'
     '  <textarea id="content" name="content" rows="4" cols="60">'
     "{content}</textarea>\n"
+    '  <label for="images">图片</label>\n'
+    '  <input type="file" id="images" name="images" multiple\n'
+    '         accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">\n'
     '  <button type="submit">发布</button>\n'
     "</form>"
 )
