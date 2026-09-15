@@ -46,10 +46,14 @@ class Request:
 
 @dataclass
 class Response:
-    """One HTTP response; `body` is text, encoded as UTF-8 on the wire."""
+    """One HTTP response.
+
+    ``body`` is text (encoded as UTF-8 on the wire) or raw ``bytes`` sent
+    unchanged — the binary channel FP-007 uses for image payloads.
+    """
 
     status: int = 200
-    body: str = ""
+    body: str | bytes = ""
     content_type: str = HTML_CONTENT_TYPE
     headers: dict[str, str] = field(default_factory=dict)
 
@@ -260,7 +264,8 @@ def make_handler(app: SocialApp) -> type[BaseHTTPRequestHandler]:
             return self.rfile.read(length) if length > 0 else b""
 
         def _write(self, response: Response) -> None:
-            payload = response.body.encode("utf-8")
+            body = response.body
+            payload = body if isinstance(body, bytes) else body.encode("utf-8")
             self.send_response(response.status)
             self.send_header("Content-Type", response.content_type)
             for name, value in response.headers.items():
@@ -295,6 +300,7 @@ def create_app() -> SocialApp:
         views_comment,
         views_comment_interaction,
         views_follow,
+        views_image,
         views_like,
         views_post,
     )
@@ -321,6 +327,7 @@ def create_app() -> SocialApp:
     views_post.register(app)
     views_comment.register(app)
     views_comment_interaction.register(app)
+    views_image.register(app)
     return app
 
 
