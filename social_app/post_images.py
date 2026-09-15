@@ -28,9 +28,7 @@ def save_post_images(
     if not storage_names:
         return
     rows = [(post_id, name, position) for position, name in enumerate(storage_names, 1)]
-    sql = (
-        "INSERT INTO post_images (post_id, storage_name, position) VALUES (?, ?, ?)"
-    )
+    sql = "INSERT INTO post_images (post_id, storage_name, position) VALUES (?, ?, ?)"
     if conn is not None:
         conn.executemany(sql, rows)
         return
