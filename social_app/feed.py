@@ -1,4 +1,4 @@
-"""Feed query module (FP-023, extended by FP-009).
+"""Feed query module (FP-023, extended by FP-009 and FP-003).
 
 Read-only aggregation for the home feed: the posts authored by ``user_id`` or
 by anyone ``user_id`` follows, newest first, each annotated with its total like
@@ -9,6 +9,13 @@ FP-009 extends ``_comments`` so every comment also carries its reply relation
 specific). Both are read from the FP-001/FP-002 tables when present and degrade
 to defaults otherwise (weak dependencies).
 
+FP-003 makes ``_comments`` the comment-visibility convergence point: the raw
+rows (now including ``c.author_id``) pass through
+:func:`social_app.comment_visibility.visible_comments` before the FP-009 dicts
+are assembled, so mutual-friend posts only show comments from their visible
+set while own / non-mutual posts keep the status quo. Filtering is a pure
+subset selection — order and dict shape are unchanged.
+
 All access goes through the generic storage API in :mod:`social_app.db`; the
 existing ``posts`` / ``follows`` / ``users`` tables are read directly, as are
 the FP-015 ``likes``, FP-016 ``comments`` and FP-001 ``comment_likes`` tables.
@@ -17,6 +24,7 @@ of scope (card §5).
 """
 
 from social_app import db
+from social_app.comment_visibility import visible_comments
 from social_app.follows import list_followees
 
 
@@ -51,28 +59,44 @@ def _has_comment_likes() -> bool:
     return row is not None
 
 
-def _comments(post_id: int, viewer_id: int) -> list[dict]:
-    """Return ``post_id``'s comments (and replies) in ascending time order.
+def _post_author_id(post_id: int) -> int | None:
+    """Return the author of ``post_id`` (None if the post row is gone)."""
+    row = db.query_one("SELECT author_id FROM posts WHERE id = ?", (post_id,))
+    return None if row is None else row["author_id"]
+
+
+def _comments(
+    post_id: int, viewer_id: int, post_author_id: int | None = None
+) -> list[dict]:
+    """Return ``post_id``'s visible comments (and replies) in ascending order.
 
     Each dict carries the FP-009 contract (card §3.2): ``comment_id``,
     ``parent_id``, ``author``, ``content``, ``created_at``, ``like_count`` and
     ``liked_by_me`` (viewer specific). Rows are ordered ``created_at ASC,
     id ASC``.
 
+    FP-003 filters the raw rows (which select ``c.author_id``) through
+    ``visible_comments(post_author_id, viewer_id, ...)`` before the dicts are
+    assembled. ``post_author_id`` defaults to a single lookup so legacy
+    two-argument callers still get full filtering semantics (card §3.2).
+
     FP-001/FP-002 are weak dependencies (``comment_likes`` table and
     ``comments.parent_id``). While both are missing the query degrades to the
     legacy ``{author, content, created_at}`` shape so the FP-023 contract keeps
     passing (card §6).
     """
+    if post_author_id is None:
+        post_author_id = _post_author_id(post_id)
     has_parent = _has_parent_id()
     has_likes = _has_comment_likes()
     if not has_parent and not has_likes:
         rows = db.query_all(
-            "SELECT u.username AS author, c.content, c.created_at "
+            "SELECT c.author_id, u.username AS author, c.content, c.created_at "
             "FROM comments c JOIN users u ON u.id = c.author_id "
             "WHERE c.post_id = ? ORDER BY c.created_at ASC, c.id ASC",
             (post_id,),
         )
+        rows = visible_comments(post_author_id, viewer_id, rows)
         return [
             {
                 "author": row["author"],
@@ -97,12 +121,13 @@ def _comments(post_id: int, viewer_id: int) -> list[dict]:
 
     rows = db.query_all(
         f"SELECT c.id AS comment_id, {parent_col} AS parent_id, "
-        "u.username AS author, c.content, c.created_at, "
+        "c.author_id, u.username AS author, c.content, c.created_at, "
         f"{like_count} AS like_count, {liked_by_me} AS liked_by_me "
         "FROM comments c JOIN users u ON u.id = c.author_id "
         "WHERE c.post_id = ? ORDER BY c.created_at ASC, c.id ASC",
         params,
     )
+    rows = visible_comments(post_author_id, viewer_id, rows)
     return [
         {
             "comment_id": row["comment_id"],
@@ -145,7 +170,7 @@ def get_feed(user_id: int) -> list[dict]:
             "created_at": row["created_at"],
             "like_count": _like_count(row["id"]),
             "liked_by_me": _liked_by_me(user_id, row["id"]),
-            "comments": _comments(row["id"], user_id),
+            "comments": _comments(row["id"], user_id, row["author_id"]),
         }
         for row in rows
     ]
