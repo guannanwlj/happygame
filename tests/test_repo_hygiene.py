@@ -1,4 +1,5 @@
-"""Repository hygiene tests locking the round-3 merge-conflict findings (task-mt18its6gv)."""
+"""Repository hygiene tests locking the round-3 merge-conflict findings (task-mt18its6gv)
+and the round-6 merge-gate finding (task-mt184d0qit: GATE:mergeable=UNKNOWN)."""
 
 import os
 import subprocess
@@ -58,4 +59,16 @@ def test_branch_merges_cleanly_into_origin_main():
     merged = _git("merge-tree", "--write-tree", "origin/main", "HEAD")
     assert merged.returncode == 0, (
         f"branch conflicts with origin/main:\n{merged.stdout}\n{merged.stderr}"
+    )
+
+
+def test_head_descends_from_origin_main():
+    """Round-6 lock: the branch must never diverge from the base (GATE:mergeable)."""
+    probe = _git("rev-parse", "--verify", "--quiet", "refs/remotes/origin/main")
+    if probe.returncode != 0:
+        pytest.skip("origin/main is not available locally (shallow checkout)")
+    ancestry = _git("merge-base", "--is-ancestor", "origin/main", "HEAD")
+    assert ancestry.returncode == 0, (
+        "HEAD does not descend from origin/main; rebase the branch onto "
+        f"origin/main before pushing:\n{ancestry.stdout}\n{ancestry.stderr}"
     )
