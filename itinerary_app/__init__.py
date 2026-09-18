@@ -4,6 +4,7 @@ Stdlib-only base: a route registry + server-side rendered placeholders that
 the later itinerary features (FP-005 form, FP-009 generation, FP-011 result
 page, FP-012 Markdown export) mount onto. See `itinerary_app.app` for the
 routing/rendering core and `itinerary_app.__main__` for the startup entry.
+The FP-002 LLM channel lives in `itinerary_app.llm`.
 """
 
 from itinerary_app.app import (
