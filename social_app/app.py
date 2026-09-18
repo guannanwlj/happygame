@@ -42,6 +42,7 @@ class Request:
     query: dict[str, list[str]] = field(default_factory=dict)
     body: bytes = b""
     cookies: dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)  # keys lowercase
 
 
 @dataclass
@@ -109,6 +110,102 @@ def parse_form(body: bytes) -> dict[str, str]:
     """
     fields = parse_qs(body.decode("utf-8"), keep_blank_values=True)
     return {name: values[0] for name, values in fields.items()}
+
+
+# --------------------------------------------------------------------------- #
+# multipart/form-data parsing (FP-001 upload support, RFC 7578).
+# --------------------------------------------------------------------------- #
+
+
+@dataclass
+class UploadedFile:
+    """One file part of a multipart body (filename UTF-8-decoded)."""
+
+    field: str
+    filename: str
+    data: bytes
+
+
+@dataclass
+class MultipartForm:
+    """Parsed multipart body: text fields plus file parts in body order."""
+
+    fields: dict[str, str] = field(default_factory=dict)
+    files: list[UploadedFile] = field(default_factory=list)
+
+
+def _unquote(value: str) -> str:
+    """Strip one pair of surrounding double quotes, if present."""
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _multipart_boundary(content_type: str) -> bytes:
+    """Extract the boundary parameter (quoted or bare) from a Content-Type.
+
+    Raises ValueError when the parameter is missing or empty.
+    """
+    for param in content_type.split(";")[1:]:
+        name, sep, value = param.partition("=")
+        if sep and name.strip().lower() == "boundary":
+            value = _unquote(value.strip())
+            if value:
+                return value.encode("utf-8")
+    raise ValueError("multipart boundary missing or empty in Content-Type")
+
+
+def _disposition_params(disposition: str) -> dict[str, str]:
+    """Parse `form-data; name="x"; filename="y"` into a lower-key dict."""
+    params: dict[str, str] = {}
+    for item in disposition.split(";"):
+        key, sep, value = item.partition("=")
+        if sep:
+            params[key.strip().lower()] = _unquote(value.strip())
+    return params
+
+
+def parse_multipart(body: bytes, content_type: str) -> MultipartForm:
+    """Parse a multipart/form-data body into fields and ordered file parts.
+
+    Text parts (no filename in Content-Disposition) are UTF-8-decoded into
+    `fields` — repeated names keep their first value, like `parse_form`.
+    Parts carrying a filename (even empty) become `UploadedFile` entries in
+    body order. Other part headers (e.g. a part's Content-Type) are ignored.
+    Raises ValueError on a missing boundary or an unparseable structure.
+    """
+    boundary = _multipart_boundary(content_type)
+    delimiter = b"--" + boundary
+    sections = body.split(delimiter)
+    # sections[0] is the (browser-empty) preamble; the last section must be
+    # the closing delimiter ("--" + trailer), everything between is a part.
+    if len(sections) < 2 or not sections[-1].startswith(b"--"):
+        raise ValueError("multipart body has no closing boundary delimiter")
+    form = MultipartForm()
+    for section in sections[1:-1]:
+        if not (section.startswith(b"\r\n") and section.endswith(b"\r\n")):
+            raise ValueError("malformed multipart part framing")
+        headers, sep, data = section[2:-2].partition(b"\r\n\r\n")
+        if not sep:
+            raise ValueError("multipart part has no header/body separator")
+        disposition = ""
+        for line in headers.split(b"\r\n"):
+            name, _, value = line.partition(b":")
+            if name.strip().lower() == b"content-disposition":
+                disposition = value.decode("utf-8").strip()
+        if not disposition.startswith("form-data"):
+            raise ValueError("multipart part without Content-Disposition")
+        params = _disposition_params(disposition)
+        field = params.get("name")
+        if not field:
+            raise ValueError("multipart part without a field name")
+        if "filename" in params:
+            form.files.append(
+                UploadedFile(field=field, filename=params["filename"], data=data)
+            )
+        elif field not in form.fields:
+            form.fields[field] = data.decode("utf-8")
+    return form
 
 
 # --------------------------------------------------------------------------- #
@@ -252,6 +349,9 @@ def make_handler(app: SocialApp) -> type[BaseHTTPRequestHandler]:
                 query=parse_qs(split.query),
                 body=self._read_body(),
                 cookies=parse_cookies(self.headers.get("Cookie", "")),
+                headers={
+                    key.lower(): value for key, value in self.headers.items()
+                },
             )
             self._write(app.dispatch(request))
 
